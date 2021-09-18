@@ -3,3 +3,6 @@ def dir_location():
 
 def cache_file(filename):
     return dir_location()+"/tokped_scrap_"+filename
+
+def db_file(filename):
+    return dir_location()+"/tokped_scrap_db_"+filename
