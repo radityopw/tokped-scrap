@@ -14,6 +14,7 @@ db_file = config.db_file("tokped")
 
 if not exists(cache_file) :
 
+    logging.debug("cache not found, get from scrapping API")
 
     client = ScrapingAntClient(token='b3fac55e1b354ad0be818ba9c80248bd')
     result = client.general_request('https://tokopedia.com/p/')
