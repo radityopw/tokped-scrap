@@ -4,6 +4,10 @@ import config
 from scrapingant_client import ScrapingAntClient
 from os.path import exists
 import sqlite3
+import logging
+
+logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+
 
 cache_file = config.cache_file("category")
 db_file = config.db_file("tokped")
@@ -33,7 +37,6 @@ sql = """
              id INTEGER PRIMARY KEY AUTOINCREMENT
             ,title TEXT COLLATE NOCASE NULL
             ,url TEXT COLLATE NOCASE
-            ,parent_id INTEGER NULL
         );
       """
 
@@ -43,29 +46,50 @@ sql = "CREATE UNIQUE INDEX IF NOT EXISTS IX_url ON category(url);"
 
 cur.execute(sql)
 
+
+
+sql = """
+        CREATE TABLE IF NOT EXISTS category_level (
+             category_id INTEGER
+            ,level INTEGER 
+            ,title TEXT COLLATE NOCASE
+            ,PRIMARY KEY(category_id,level)
+            ,FOREIGN KEY(category_id) REFERENCES category(id)
+        );
+      """
+
+cur.execute(sql)
+
+
 for link in all_links:
-    #print(link)
-    #print(link['href'])
-    #print(type(link['href']))
-    #print(link.contents[0])
-    #print(type(link.contents[0]))
+    href = str(link['href']).strip().lower()
+    title = str(link.contents[0]).strip().lower()
+    header_link = "https://www.tokopedia.com/p/" 
 
-    href = str(link['href']).strip()
-    title = str(link.contents[0]).strip()
+    if href is not None and header_link in href  :
 
-    if href is not None and href != ""  :
+        href_short = href.replace(header_link,"")
 
-        print(href)
-        print(title)
+        href_level = href_short.split("/")
+
+        logging.info("process "+href+" and title "+title)
+
+        logging.info("href level : "+str(href_level))
+
 
         sql = f"""
                 SELECT id 
                 FROM category
                 WHERE url = ?
               """
+
+        logging.debug(sql)
+
         row = cur.execute(sql,(href,)).fetchone()
 
         if row is None :
+
+            logging.debug("insert mode")
 
 
             sql = f""" 
@@ -74,9 +98,13 @@ for link in all_links:
                 """
             cur.execute(sql,(title,href))
 
+            id = cur.lastrowid
+
         else :
 
-            id = row[0][0] # baris pertama , kolom id -> lihat query row
+            logging.debug("update mode")
+
+            id = row[0] # baris pertama , kolom id -> lihat query row
 
             sql = """
                     UPDATE category
@@ -84,6 +112,24 @@ for link in all_links:
                     WHERE id = ?
                   """
             cur.execute(sql,(title,id))
+
+        sql = """
+                DELETE FROM category_level 
+                WHERE category_id = ?
+              """
+        cur.execute(sql,(id,))
+
+        level = 1
+
+        for level_title in href_level :
+
+            sql = """
+                    INSERT INTO category_level(category_id,level,title)
+                    VALUES(?,?,?)
+                  """
+            cur.execute(sql,(id,level,level_title))
+
+            level = level + 1
 
 
 con.commit()
