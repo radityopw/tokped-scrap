@@ -9,19 +9,33 @@ import logging
 logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
 
+logging.info("starting category")
+
 cache_file = config.cache_file("category")
 db_file = config.db_file("tokped")
 
 if not exists(cache_file) :
 
+    logging.info("creating cache file")
 
-    client = ScrapingAntClient(token='b3fac55e1b354ad0be818ba9c80248bd')
-    result = client.general_request('https://tokopedia.com/p/')
-    content = result.content
+    content = ""
+    url = "https://tokopedia.com/p/"
 
-    with open(cache_file,'w', encoding = 'utf-8') as f :
-        f.write(content)
+    logging.info("using "+config.engine()+" engine")
 
+    if config.engine() == "scrapingant" :
+
+        client = ScrapingAntClient(token=config.scrapingant_token())
+        result = client.general_request(url)
+        content = result.content
+        with open(cache_file,'w', encoding = 'utf-8') as f :
+            if content is not "" :
+                f.write(content)
+
+    if config.engine() == "php" :
+        os.system(config.php_scrap()+" "+url+" > "+cache_file)
+
+    
 with open(cache_file,'r', encoding = 'utf-8') as f :
     content = f.read()
 
