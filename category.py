@@ -5,6 +5,8 @@ from scrapingant_client import ScrapingAntClient
 from os.path import exists
 import sqlite3
 import logging
+import scrap
+
 
 logging.basicConfig(format='%(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
@@ -13,28 +15,10 @@ logging.info("starting category")
 
 cache_file = config.cache_file("category")
 db_file = config.db_file("tokped")
+url = "https://tokopedia.com/p/"
 
 if not exists(cache_file) :
-
-    logging.info("creating cache file")
-
-    content = ""
-    url = "https://tokopedia.com/p/"
-
-    logging.info("using "+config.engine()+" engine")
-
-    if config.engine() == "scrapingant" :
-        
-        client = ScrapingAntClient(token=config.scrapingant_token())
-        result = client.general_request(url)
-        content = result.content
-        with open(cache_file,'w', encoding = 'utf-8') as f :
-            if content is not "" :
-                f.write(content)
-
-    if config.engine() == "php" :
-        os.system(config.php_scrap()+" "+url+" > "+cache_file)
-
+    scrap.scrap_this(url,cache_file)
     
 with open(cache_file,'r', encoding = 'utf-8') as f :
     content = f.read()
@@ -73,6 +57,18 @@ sql = """
       """
 
 cur.execute(sql)
+
+sql = """
+        CREATE TABLE IF NOT EXISTS category_level_max (
+             category_id INTEGER
+            ,max_level INTEGER
+            ,PRIMARY KEY(category_id,max_level)
+            ,FOREIGN KEY(category_id) REFERENCES category(id)
+        );
+      """
+cur.execute(sql)
+
+
 
 
 for link in all_links:
@@ -144,6 +140,19 @@ for link in all_links:
             cur.execute(sql,(id,level,level_title))
 
             level = level + 1
+
+
+sql = "DELETE FROM category_level_max;"
+cur.execute(sql)
+
+sql = """
+        INSERT INTO category_level_max(category_id,max_level)
+        SELECT category_id,max(level)
+        FROM category_level
+        GROUP BY category_id;
+      """
+cur.execute(sql)
+
 
 
 con.commit()
